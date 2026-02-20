@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BonusType {
+  FREE
+  PREMIUM
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  passwordHash   String
+  username       String          @unique
+  bio            String?
+  avatarUrl      String?
+  role           Role            @default(USER)
+  isPremium      Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  posts          Post[]
+  comments       Comment[]
+  likes          Like[]
+  reposts        Repost[]
+  followers      Follow[]        @relation("UserFollowers")
+  following      Follow[]        @relation("UserFollowing")
+  conversationsA Conversation[]  @relation("ConversationUserA")
+  conversationsB Conversation[]  @relation("ConversationUserB")
+  messages       Message[]
+  streams        Stream[]
+  bonuses        Bonus[]         @relation("BonusCreatedBy")
+}
+
+model Post {
+  id          String    @id @default(cuid())
+  authorId    String
+  content     String
+  imageUrl    String?
+  voiceUrl    String?
+  viewsCount  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  likes       Like[]
+  reposts     Repost[]
+
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model Repost {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+}
+
+model Bonus {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  offerUrl    String
+  type        BonusType
+  expiresAt   DateTime
+  createdById String
+  createdAt   DateTime  @default(now())
+  createdBy   User      @relation("BonusCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model Stream {
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  platformUrl  String
+  viewersCount Int      @default(0)
+  isLive       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([viewersCount])
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userA     User      @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB     User      @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@unique([userAId, userBId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
